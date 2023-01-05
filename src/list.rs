@@ -1,11 +1,12 @@
+use serde::{Deserialize, Serialize};
 use std::process::exit;
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct List {
     items: Vec<String>,
 }
 
-// TODO: write some tests for this function
-// or test it what ever
+// TODO: refactor this with string slices this is super uncool I think
 impl List {
     pub fn prompt(&self, len: usize) -> Option<String> {
         let mut idx = 0;
@@ -16,7 +17,7 @@ impl List {
                         return Some(self.items[idx + i].clone());
                     }
                     None => {
-                        println!("Out of bounds!");
+                        println!("\tOut of bounds!");
                         exit(0);
                     }
                 }
@@ -46,7 +47,7 @@ impl List {
 
 fn print_batch(items: &[String]) -> Option<usize> {
     let len = items.len();
-    print!("\x1B[2J");
+    std::process::Command::new("clear").status().expect("Unable to clear the terminal");
     for (idx, i) in items.iter().enumerate() {
         println!("\t{}: {}", idx, i);
     }
@@ -62,7 +63,7 @@ fn get_input(len: usize) -> Option<usize> {
         .expect("Failed to read line");
     match input.trim() {
         "q" => {
-            println!("ByeBye");
+            println!("\tByeBye");
             exit(0)
         }
         "n" => None,
