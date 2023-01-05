@@ -48,6 +48,7 @@ impl List {
 fn print_batch(items: &[String]) -> Option<usize> {
     let len = items.len();
     std::process::Command::new("clear").status().expect("Unable to clear the terminal");
+    println!("\n");
     for (idx, i) in items.iter().enumerate() {
         println!("\t{}: {}", idx, i);
     }
@@ -58,6 +59,7 @@ fn print_batch(items: &[String]) -> Option<usize> {
 fn get_input(len: usize) -> Option<usize> {
     // get a number from the user
     let mut input: String = "".to_string();
+    print!("\t");
     std::io::stdin()
         .read_line(&mut input)
         .expect("Failed to read line");

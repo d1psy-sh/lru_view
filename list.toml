@@ -1,0 +1,7 @@
+[[items]]
+name = "src/main.rs"
+count = 1
+
+[[items]]
+name = "./list.toml"
+count = 0

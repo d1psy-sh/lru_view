@@ -1,3 +1,4 @@
+use crate::args::Args;
 use crate::list::List;
 use crate::lru::LRU;
 use serde::{Deserialize, Serialize};
@@ -5,13 +6,15 @@ use std::{env, fs};
 use toml;
 // this is the main app where the acitons get organized
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct App {
     config: Config,
     list: AppList,
-    pub lru: LRU,
+    lru: LRU,
+    args: Args,
 }
 
+// TODO: merge applist and list cuz is basically the same
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct AppList {
     items: Vec<Item>,
@@ -30,39 +33,32 @@ struct Config {
 }
 
 impl App {
+    pub fn new() -> Self {
+        Self {
+            config: Config {
+                capacity: 20,
+                batch_size: 10,
+            },
+            list: AppList { items: vec![] },
+            lru: LRU::new(20),
+            args: Args::new(),
+        }
+    }
+
     /// runs the app function that is called in the main and should do everything
     pub fn run(&mut self) -> Result<(), String> {
         // load the config
         self.load_config();
         // load the list
         self.load();
-
-        // run the app use the lru to handle the data
-        self.lru = LRU::new(self.config.capacity);
-        // for the list we need a item struct which holds the count
-        // here the lru gets initilized
-        // TODO: this is spagetti code (I don't know how spaguetti is spelled)
-        for item in &self.list.items {
-            self.lru.items.insert(item.name.clone(), item.count);
-        }
-        // sync the display list with the map in the app
-        let mut items: Vec<String> = vec![];
-        for i in self.lru.items.keys() {
-            items.push(i.clone());
-        }
-        let list: List = List::new(items);
-        let item = list.prompt(self.config.batch_size);
-        match item {
-            Some(i) => {
-                self.lru.update(&i);
+        let res = self.handle_args();
+        match res {
+            Ok(_) => {
+                // save the list
+                self.save()
             }
-            None => {
-                Err("No item choosen!".to_string())?;
-            }
+            Err(e) => Err(e),
         }
-        // save the list in a folder
-        self.save();
-        Ok(())
     }
     /// load the configs from the app
     fn load_config(&mut self) {
@@ -79,19 +75,11 @@ impl App {
                     }
                     Err(_) => {
                         println!("Unable to load config file\nGoing to default config");
-                        self.config = Config {
-                            capacity: 20,
-                            batch_size: 10,
-                        };
                     }
                 }
             }
             Err(_) => {
                 println!("Unable to get home directory");
-                self.config = Config {
-                    capacity: 20,
-                    batch_size: 10,
-                };
             }
         }
     }
@@ -110,17 +98,82 @@ impl App {
                 self.list = AppList { items: vec![] };
             }
         }
+        // run the app use the lru to handle the data
+        self.lru = LRU::new(self.config.capacity);
+        // for the list we need a item struct which holds the count
+        // here the lru gets initilized
+        // TODO: this is spagetti code (I don't know how spaguetti is spelled)
+        for item in &self.list.items {
+            self.lru.items.insert(item.name.clone(), item.count);
+        }
     }
     /// save the list back with the counts to a toml file somewhere
-    fn save(&mut self) {
-        let file = toml::to_string(&self.list).expect("Unable to serialize list");
+    fn save(&mut self) -> Result<(), String> {
+        let list: AppList = AppList {
+            items: self
+                .lru
+                .items
+                .iter()
+                .map(|(k, v)| Item {
+                    name: k.clone(),
+                    count: *v,
+                })
+                .collect(),
+        };
+        let file = toml::to_string(&list).expect("Unable to serialize list");
         let res = fs::write("./list.toml", file);
         match res {
-            Ok(_) => {}
-            Err(_) => {
-                // don't know whether panic is right here
-                panic!("Unable to save list file");
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Unable to save list file: {}", e)),
+        }
+    }
+
+    fn handle_args(&mut self) -> Result<(), String> {
+        if self.args.clear {
+            let res = fs::remove_file("./list.toml");
+            match res {
+                Ok(_) => {
+                    println!("List cleared");
+                    return Ok(());
+                },
+                Err(e) => {
+                    println!("Unable to clear list");
+                    return Err(format!("Unable to clear list: {}", e));
+                }
             }
+        }
+        if self.args.test {
+            // TODO: implement a test mode when it is necessary
+            println!("Test mode");
+            return Ok(());
+        }
+        // if file update lru else list prompt
+        match &self.args.file {
+            Some(file) => {
+                self.lru.update(file);
+                match crate::open::open_file(file) {
+                    Ok(_) => self.save(),
+                    Err(e) => Err(format!("Unable to open file: {}", e)),
+                }
+            }
+            None => self.update_from_list(),
+        }
+    }
+
+    fn update_from_list(&mut self) -> Result<(), String> {
+        // sync the display list with the map in the app
+        let mut items: Vec<String> = vec![];
+        for i in self.lru.items.keys() {
+            items.push(i.clone());
+        }
+        let list: List = List::new(items);
+        let item = list.prompt(self.config.batch_size);
+        match item {
+            Some(i) => {
+                self.lru.update(&i);
+                crate::open::open_file(&i)
+            }
+            None => Err("No item choosen!".to_string()),
         }
     }
 }
