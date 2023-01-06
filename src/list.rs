@@ -17,7 +17,7 @@ impl List {
                         return Some(self.items[idx + i].clone());
                     }
                     None => {
-                        println!("\tOut of bounds!");
+                        println!("Out of bounds!");
                         exit(0);
                     }
                 }
@@ -50,22 +50,22 @@ fn print_batch(items: &[String]) -> Option<usize> {
     std::process::Command::new("clear").status().expect("Unable to clear the terminal");
     println!("\n");
     for (idx, i) in items.iter().enumerate() {
-        println!("\t{}: {}", idx, i);
+        println!("{}: {}", idx, i);
     }
-    println!("\n\n\tEnter a number, n for next or q to quit!\n\n");
+    println!("\n\nEnter a number, n for next or q to quit!\n\n");
     return get_input(len);
 }
 
 fn get_input(len: usize) -> Option<usize> {
     // get a number from the user
     let mut input: String = "".to_string();
-    print!("\t");
+    print!("");
     std::io::stdin()
         .read_line(&mut input)
         .expect("Failed to read line");
     match input.trim() {
         "q" => {
-            println!("\tByeBye");
+            println!("ByeBye");
             exit(0)
         }
         "n" => None,
@@ -76,12 +76,12 @@ fn get_input(len: usize) -> Option<usize> {
                     if n < len {
                         return Some(n);
                     }
-                    println!("\tPlease enter a number or n for next or q to quit!");
+                    println!("Please enter a number or n for next or q to quit!");
                     return get_input(len);
                 }
 
                 Err(_) => {
-                    println!("\tPlease enter a number or n for next or q to quit!");
+                    println!("Please enter a number or n for next or q to quit!");
                     return get_input(len);
                 }
             }

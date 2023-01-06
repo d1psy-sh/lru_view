@@ -26,8 +26,15 @@ A configuration file is needed and should be stored in `~/.config/lru_view/confi
 - [ ] config file
     - [ ] always have a save fallback like open with browser
     - [ ] save default configs so I can change it when I use windows
-    - [ ] items should be opened disowned from the host session
-- [ ] lru
-    - [ ] test the lru
+    - [x] items should be opened disowned from the host session
+- [x] lru
+    - [x] test the lru
     - [x] implement LRU with counter
 - [x] and a map
+
+## Todo
+
+- different openers or configure xdg-open
+- win compatible
+- code cleanup
+- so much more but it works for now

@@ -87,17 +87,29 @@ impl App {
     fn load(&mut self) {
         // this is temporary find a path that is conventional in linux
         // and make it cross plattform for windows and mac
-        let list = fs::read_to_string("./list.toml");
-        match list {
-            Ok(list) => {
-                let list: AppList = toml::from_str(&list).expect("Unable to parse list file");
-                self.list = list;
+        let home = env::var("HOME".to_string());
+        match home {
+            Ok(home) => {
+                let lru_path = format!("{}/.lru_list.toml", &home);
+                let list = fs::read_to_string(&lru_path);
+                match list {
+                    Ok(list) => {
+                        let list: AppList =
+                            toml::from_str(&list).expect("Unable to parse list file");
+                        self.list = list;
+                    }
+                    Err(_) => {
+                        println!("Unable to load list file\nCreating default list file");
+                        fs::write(lru_path, "").expect("Unable to create list file");
+                        self.list = AppList { items: vec![] };
+                    }
+                }
             }
             Err(_) => {
-                println!("Unable to load list file\nGoing to default list");
-                self.list = AppList { items: vec![] };
+                println!("Unable to get home directory");
             }
         }
+
         // run the app use the lru to handle the data
         self.lru = LRU::new(self.config.capacity);
         // for the list we need a item struct which holds the count
@@ -135,7 +147,7 @@ impl App {
                 Ok(_) => {
                     println!("List cleared");
                     return Ok(());
-                },
+                }
                 Err(e) => {
                     println!("Unable to clear list");
                     return Err(format!("Unable to clear list: {}", e));
@@ -150,7 +162,14 @@ impl App {
         // if file update lru else list prompt
         match &self.args.file {
             Some(file) => {
-                self.lru.update(file);
+                // TODO: this does not seem right there has to be a nicer way 
+                // to do that
+                self.lru.update(&String::from(
+                    fs::canonicalize(file)
+                        .expect("canonicalize failed!")
+                        .to_str()
+                        .expect("canonicalize failed in to_str()"),
+                ));
                 match crate::open::open_file(file) {
                     Ok(_) => self.save(),
                     Err(e) => Err(format!("Unable to open file: {}", e)),
