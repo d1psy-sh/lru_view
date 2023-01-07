@@ -100,7 +100,14 @@ impl App {
                     }
                     Err(_) => {
                         println!("Unable to load list file\nCreating default list file");
-                        fs::write(lru_path, "").expect("Unable to create list file");
+                        fs::write(
+                            lru_path,
+                            r#"[[items]]
+                        name = <enter name of your first file with full path>
+                        count = 0"#,
+                        )
+                        .expect("Unable to create list file");
+                        self.load();
                         self.list = AppList { items: vec![] };
                     }
                 }
@@ -133,19 +140,28 @@ impl App {
                 .collect(),
         };
         let file = toml::to_string(&list).expect("Unable to serialize list");
-        let res = fs::write("./list.toml", file);
-        match res {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Unable to save list file: {}", e)),
+        let home = env::var("HOME".to_string());
+        match home {
+            Ok(home) => {
+                let lru_path = format!("{}/.lru_list.toml", &home);
+                let res = fs::write(lru_path, file);
+                match res {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(format!("Unable to save list file: {}", e)),
+                }
+            }
+            Err(_) => Err("Unable to get home directory".to_string()),
         }
     }
 
     fn handle_args(&mut self) -> Result<(), String> {
         if self.args.clear {
-            let res = fs::remove_file("./list.toml");
+            let home = env::var("HOME".to_string()).expect("couldn't find home env var");
+            let lru_path = format!("{}.lru_list.toml", &home);
+            let res = fs::remove_file(&lru_path);
             match res {
                 Ok(_) => {
-                    println!("List cleared");
+                    println!("List cleared {}", lru_path);
                     return Ok(());
                 }
                 Err(e) => {
@@ -162,7 +178,7 @@ impl App {
         // if file update lru else list prompt
         match &self.args.file {
             Some(file) => {
-                // TODO: this does not seem right there has to be a nicer way 
+                // TODO: this does not seem right there has to be a nicer way
                 // to do that
                 self.lru.update(&String::from(
                     fs::canonicalize(file)
