@@ -9,7 +9,7 @@ fn main() {
             println!("Be FAST!");
         }
         Err(e) => {
-            println!("Error: {}", e);
+            println!("Error: {e}");
         }
     }
 }

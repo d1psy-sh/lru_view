@@ -50,10 +50,10 @@ fn print_batch(items: &[String]) -> Option<usize> {
     std::process::Command::new("clear").status().expect("Unable to clear the terminal");
     println!("\n");
     for (idx, i) in items.iter().enumerate() {
-        println!("{}: {}", idx, i);
+        println!("{idx}: {i}");
     }
     println!("\n\nEnter a number, n for next or q to quit!\n\n");
-    return get_input(len);
+    get_input(len)
 }
 
 fn get_input(len: usize) -> Option<usize> {
@@ -77,12 +77,12 @@ fn get_input(len: usize) -> Option<usize> {
                         return Some(n);
                     }
                     println!("Please enter a number or n for next or q to quit!");
-                    return get_input(len);
+                    get_input(len)
                 }
 
                 Err(_) => {
                     println!("Please enter a number or n for next or q to quit!");
-                    return get_input(len);
+                    get_input(len)
                 }
             }
         }

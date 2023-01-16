@@ -1,8 +1,9 @@
 use crate::args::Args;
+use crate::config::Config;
 use crate::list::List;
 use crate::lru::LRU;
 use serde::{Deserialize, Serialize};
-use std::{env, fs};
+use std::{collections::HashMap, env, fs, process::exit};
 use toml;
 // this is the main app where the acitons get organized
 
@@ -26,18 +27,13 @@ struct Item {
     count: usize,
 }
 
-#[derive(Deserialize, Debug, Clone)]
-struct Config {
-    pub capacity: usize,
-    pub batch_size: usize,
-}
-
 impl App {
     pub fn new() -> Self {
         Self {
             config: Config {
                 capacity: 20,
                 batch_size: 10,
+                openers: HashMap::new(),
             },
             list: AppList { items: vec![] },
             lru: LRU::new(20),
@@ -62,24 +58,14 @@ impl App {
     }
     /// load the configs from the app
     fn load_config(&mut self) {
-        let home = env::var("HOME".to_string());
-        match home {
-            Ok(home) => {
-                let config_path = format!("{}/.config/lru_view/config.toml", home);
-                let config = fs::read_to_string(config_path);
-                match config {
-                    Ok(config) => {
-                        let config: Config =
-                            toml::from_str(&config).expect("Unable to parse config file");
-                        self.config = config;
-                    }
-                    Err(_) => {
-                        println!("Unable to load config file\nGoing to default config");
-                    }
-                }
-            }
-            Err(_) => {
-                println!("Unable to get home directory");
+        let res = Config::load();
+        match res {
+            Ok(c) => {
+                self.config = c;
+            },
+            Err(e) => {
+                println!("Unable to load config: {e}");
+                exit(0);
             }
         }
     }
@@ -87,7 +73,7 @@ impl App {
     fn load(&mut self) {
         // this is temporary find a path that is conventional in linux
         // and make it cross plattform for windows and mac
-        let home = env::var("HOME".to_string());
+        let home = env::var("HOME");
         match home {
             Ok(home) => {
                 let lru_path = format!("{}/.lru_list.toml", &home);
@@ -103,7 +89,7 @@ impl App {
                         fs::write(
                             lru_path,
                             r#"[[items]]
-                        name = <enter name of your first file with full path>
+                        name = "<enter name of your first file with full path>"
                         count = 0"#,
                         )
                         .expect("Unable to create list file");
@@ -140,14 +126,14 @@ impl App {
                 .collect(),
         };
         let file = toml::to_string(&list).expect("Unable to serialize list");
-        let home = env::var("HOME".to_string());
+        let home = env::var("HOME");
         match home {
             Ok(home) => {
                 let lru_path = format!("{}/.lru_list.toml", &home);
                 let res = fs::write(lru_path, file);
                 match res {
                     Ok(_) => Ok(()),
-                    Err(e) => Err(format!("Unable to save list file: {}", e)),
+                    Err(e) => Err(format!("Unable to save list file: {e}")),
                 }
             }
             Err(_) => Err("Unable to get home directory".to_string()),
@@ -156,17 +142,17 @@ impl App {
 
     fn handle_args(&mut self) -> Result<(), String> {
         if self.args.clear {
-            let home = env::var("HOME".to_string()).expect("couldn't find home env var");
+            let home = env::var("HOME").expect("couldn't find home env var");
             let lru_path = format!("{}.lru_list.toml", &home);
             let res = fs::remove_file(&lru_path);
             match res {
                 Ok(_) => {
-                    println!("List cleared {}", lru_path);
-                    return Ok(());
+                    println!("List cleared {lru_path}");
+                    exit(0);
                 }
                 Err(e) => {
                     println!("Unable to clear list");
-                    return Err(format!("Unable to clear list: {}", e));
+                    return Err(format!("Unable to clear list: {e}"));
                 }
             }
         }
@@ -186,9 +172,9 @@ impl App {
                         .to_str()
                         .expect("canonicalize failed in to_str()"),
                 ));
-                match crate::open::open_file(file) {
+                match crate::open::open_file(&self.config, file) {
                     Ok(_) => self.save(),
-                    Err(e) => Err(format!("Unable to open file: {}", e)),
+                    Err(e) => Err(format!("Unable to open file: {e}")),
                 }
             }
             None => self.update_from_list(),
@@ -206,9 +192,15 @@ impl App {
         match item {
             Some(i) => {
                 self.lru.update(&i);
-                crate::open::open_file(&i)
+                crate::open::open_file(&self.config, &i)
             }
             None => Err("No item choosen!".to_string()),
         }
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
     }
 }

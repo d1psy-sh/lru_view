@@ -26,8 +26,14 @@ pub struct Args {
     pub test: bool,
 }
 
+impl Default for Args {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Args {
-    pub fn new() -> Self {
+   pub fn new() -> Self {
         Args::parse()
     }
 }
